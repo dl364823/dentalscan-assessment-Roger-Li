@@ -664,7 +664,7 @@ export default function ScanningFlow() {
               disabled={isSubmitting}
               className="px-12 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm transition-all active:scale-95"
             >
-              {isSubmitting ? 'Uploading…' : 'Submit Scan'}
+              {isSubmitting ? 'Uploading…' : 'Submit'}
             </button>
           )}
         </div>

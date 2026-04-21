@@ -35,6 +35,9 @@ export default function ScanningFlow() {
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const scanIdRef = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -110,21 +113,33 @@ export default function ScanningFlow() {
     startCamera();
   }, []);
 
-  // ── Scan complete: notify + open thread ─────────────────────────────────────
+  // ── Scan complete: prepare IDs, wait for user to hit Submit ─────────────────
   useEffect(() => {
     if (currentStep === 5) {
       const scanId = `scan-${Date.now()}`;
+      scanIdRef.current = scanId;
       setThreadId(`thread-${scanId}`);
-      fetch('/api/notify', {
+    }
+  }, [currentStep]);
+
+  const handleSubmit = useCallback(async () => {
+    if (!scanIdRef.current || isSubmitting || submitted) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('/api/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scanId, status: 'completed' }),
-      })
-        .then(res => { if (!res.ok) throw new Error(`Notify failed: ${res.status}`); })
-        .then(() => fetchNotifications())
-        .catch(err => console.error('Notification trigger failed:', err));
+        body: JSON.stringify({ scanId: scanIdRef.current, status: 'completed' }),
+      });
+      if (!res.ok) throw new Error(`Submit failed: ${res.status}`);
+      setSubmitted(true);
+      fetchNotifications();
+    } catch (err) {
+      console.error('Submit failed:', err);
+    } finally {
+      setIsSubmitting(false);
     }
-  }, [currentStep, fetchNotifications]);
+  }, [isSubmitting, submitted, fetchNotifications]);
 
   // ── Load thread messages ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -395,9 +410,10 @@ export default function ScanningFlow() {
       </div>
 
       {/* ── Main Viewport ── */}
-      <div className={`relative w-full max-w-md bg-black overflow-hidden ${currentStep < 5 ? 'aspect-[3/4]' : 'flex-1'}`}>
+      <div className={`relative w-full max-w-md bg-black overflow-hidden ${submitted ? 'flex-1' : 'aspect-[3/4]'}`}>
 
         {currentStep < 5 ? (
+          /* ── Camera view ── */
           <>
             {/* Video */}
             <video
@@ -480,6 +496,19 @@ export default function ScanningFlow() {
               </div>
             </div>
           </>
+        ) : !submitted ? (
+          /* ── Review screen (all 5 taken, not yet submitted) ── */
+          <div className="flex flex-col items-center justify-center h-full gap-5 bg-zinc-950 px-8 text-center">
+            <div className="w-16 h-16 rounded-full bg-blue-900/30 border border-blue-700/40 flex items-center justify-center">
+              <CheckCircle2 size={28} className="text-blue-400" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-white">All 5 photos captured</h2>
+              <p className="text-xs text-zinc-500 mt-2 leading-relaxed">
+                Review your shots below, then tap Submit to send them to your clinic.
+              </p>
+            </div>
+          </div>
         ) : (
           /* ── Results screen: side-by-side sidebar layout ── */
           <div className="flex flex-row h-full bg-zinc-950">
@@ -509,6 +538,11 @@ export default function ScanningFlow() {
                 <p className="text-[11px] text-zinc-300 leading-relaxed">
                   Possible early-stage cavity detected. Consult your dentist for a full examination.
                 </p>
+              </div>
+
+              <div className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-green-900/40 border border-green-700/50">
+                <CheckCircle2 size={13} className="text-green-400 flex-shrink-0" />
+                <span className="text-[11px] text-green-400 font-medium">Submitted to clinic</span>
               </div>
             </div>
 
@@ -571,38 +605,49 @@ export default function ScanningFlow() {
         )}
       </div>
 
-      {/* ── Capture button ── */}
-      {currentStep < 5 && (
+      {/* ── Controls: capture button OR submit button ── */}
+      {!submitted && (
         <div className="py-7 w-full max-w-md flex justify-center bg-zinc-950">
-          <div className="relative flex items-center justify-center">
-            {/* Expanding ping ring when ready */}
-            {isReady && (
-              <span className="absolute w-24 h-24 rounded-full border border-green-400/30 animate-ping" />
-            )}
+          {currentStep < 5 ? (
+            /* Capture button */
+            <div className="relative flex items-center justify-center">
+              {isReady && (
+                <span className="absolute w-24 h-24 rounded-full border border-green-400/30 animate-ping" />
+              )}
+              <button
+                onClick={handleCapture}
+                className={`relative w-20 h-20 rounded-full border-[3px] flex items-center justify-center transition-all duration-300 active:scale-90 ${
+                  isReady
+                    ? 'border-green-400 shadow-[0_0_24px_rgba(74,222,128,0.4)]'
+                    : effectiveColor === 'amber'
+                      ? 'border-amber-400'
+                      : 'border-white/25'
+                }`}
+              >
+                <div className={`w-[62px] h-[62px] rounded-full flex items-center justify-center transition-all duration-300 ${
+                  isReady ? 'bg-green-400' :
+                  effectiveColor === 'amber' ? 'bg-white/90' :
+                  'bg-white/60'
+                }`}>
+                  <Camera size={22} className="text-black" />
+                </div>
+              </button>
+            </div>
+          ) : (
+            /* Submit button */
             <button
-              onClick={handleCapture}
-              className={`relative w-20 h-20 rounded-full border-[3px] flex items-center justify-center transition-all duration-300 active:scale-90 ${
-                isReady
-                  ? 'border-green-400 shadow-[0_0_24px_rgba(74,222,128,0.4)]'
-                  : effectiveColor === 'amber'
-                    ? 'border-amber-400'
-                    : 'border-white/25'
-              }`}
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="px-12 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm transition-all active:scale-95"
             >
-              <div className={`w-[62px] h-[62px] rounded-full flex items-center justify-center transition-all duration-300 ${
-                isReady ? 'bg-green-400' :
-                effectiveColor === 'amber' ? 'bg-white/90' :
-                'bg-white/60'
-              }`}>
-                <Camera size={22} className="text-black" />
-              </div>
+              {isSubmitting ? 'Uploading…' : 'Submit Scan'}
             </button>
-          </div>
+          )}
         </div>
       )}
 
       {/* ── Thumbnail strip ── */}
-      {currentStep < 5 && (
+      {!submitted && (
         <div className="flex gap-2 px-4 pb-6 w-full max-w-md">
           {VIEWS.map((v, i) => (
             <div key={i} className="flex-1 flex flex-col items-center gap-1">

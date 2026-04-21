@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { Camera, CheckCircle2, Bell } from "lucide-react";
+import { Camera, CheckCircle2, Bell, MessageCircle, X } from "lucide-react";
 
 type NotificationItem = {
   id: string;
@@ -35,6 +35,7 @@ export default function ScanningFlow() {
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const scanIdRef = useRef<string | null>(null);
@@ -510,69 +511,93 @@ export default function ScanningFlow() {
             </div>
           </div>
         ) : (
-          /* ── Results screen: side-by-side sidebar layout ── */
-          <div className="flex flex-row h-full bg-zinc-950">
+          /* ── Results screen ── */
+          <div className="relative flex flex-col h-full bg-zinc-950 overflow-hidden">
 
-            {/* Left panel — scan summary */}
-            <div className="w-[42%] flex flex-col items-center px-3 pt-5 pb-3 gap-3 border-r border-zinc-800 overflow-y-auto">
-              <div className="w-10 h-10 rounded-full bg-green-900/40 border border-green-700/50 flex items-center justify-center flex-shrink-0">
-                <CheckCircle2 size={18} className="text-green-400" />
-              </div>
-              <div className="text-center">
-                <h2 className="text-xs font-semibold text-white">Scan Complete</h2>
-                <p className="text-[10px] text-zinc-500 mt-0.5">5 photos captured</p>
+            {/* Summary — full width, always visible */}
+            <div className="flex-1 overflow-y-auto px-5 pt-6 pb-24 flex flex-col gap-4">
+              <div className="flex flex-col items-center gap-3 text-center">
+                <div className="w-12 h-12 rounded-full bg-green-900/40 border border-green-700/50 flex items-center justify-center">
+                  <CheckCircle2 size={22} className="text-green-400" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold text-white">Scan Complete</h2>
+                  <p className="text-[11px] text-zinc-500 mt-0.5">5 photos submitted to your clinic</p>
+                </div>
               </div>
 
-              {/* Captured thumbnails grid */}
-              <div className="grid grid-cols-2 gap-1 w-full">
+              {/* Thumbnails */}
+              <div className="grid grid-cols-3 gap-2">
                 {capturedImages.map((img, i) => (
-                  <div key={i} className="aspect-[3/4] rounded overflow-hidden border border-zinc-800">
-                    <img src={img} className="w-full h-full object-cover" alt={VIEWS[i]?.label} />
+                  <div key={i} className="flex flex-col gap-1">
+                    <div className="aspect-[3/4] rounded-lg overflow-hidden border border-zinc-800">
+                      <img src={img} className="w-full h-full object-cover" alt={VIEWS[i]?.label} />
+                    </div>
+                    <p className="text-[9px] text-zinc-600 text-center">{VIEWS[i]?.label}</p>
                   </div>
                 ))}
               </div>
 
               {/* AI result */}
-              <div className="w-full bg-zinc-900 rounded-lg p-2.5 border border-zinc-800">
-                <p className="text-[9px] text-zinc-500 uppercase tracking-wider mb-1">AI Note</p>
-                <p className="text-[11px] text-zinc-300 leading-relaxed">
-                  Possible early-stage cavity detected. Consult your dentist for a full examination.
+              <div className="bg-zinc-900 rounded-xl p-4 border border-zinc-800">
+                <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">AI Analysis</p>
+                <p className="text-xs text-zinc-300 leading-relaxed">
+                  Possible early-stage cavity detected in lower-left region. Consult your dentist for a full examination.
                 </p>
               </div>
 
-              <div className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-green-900/40 border border-green-700/50">
+              <div className="flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-green-900/30 border border-green-800/40">
                 <CheckCircle2 size={13} className="text-green-400 flex-shrink-0" />
-                <span className="text-[11px] text-green-400 font-medium">Submitted to clinic</span>
+                <span className="text-xs text-green-400 font-medium">Submitted to clinic</span>
               </div>
             </div>
 
-            {/* Right panel — messaging sidebar */}
-            <div className="flex-1 flex flex-col min-h-0">
-              {/* Sidebar header */}
-              <div className="px-3 py-2.5 border-b border-zinc-800 bg-zinc-900/40 flex-shrink-0">
-                <div className="flex items-center gap-1.5">
+            {/* Floating chat button */}
+            {!showChat && (
+              <button
+                onClick={() => setShowChat(true)}
+                className="absolute bottom-5 right-5 w-14 h-14 bg-blue-600 hover:bg-blue-500 active:scale-95 rounded-full shadow-2xl flex items-center justify-center transition-all"
+              >
+                <MessageCircle size={22} className="text-white" />
+                {messages.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] font-bold text-white flex items-center justify-center">
+                    {messages.length}
+                  </span>
+                )}
+              </button>
+            )}
+
+            {/* Chat bubble popup */}
+            <div className={`absolute bottom-20 right-4 w-72 h-80 bg-zinc-900 rounded-2xl border border-zinc-800 shadow-2xl flex flex-col overflow-hidden transition-all duration-200 origin-bottom-right ${showChat ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'}`}>
+              <div className="px-3 py-2.5 border-b border-zinc-800 flex items-center justify-between flex-shrink-0">
+                <div className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                  <p className="text-[11px] font-semibold text-zinc-200 tracking-wide">Clinic Chat</p>
+                  <p className="text-sm font-semibold text-white">Clinic Chat</p>
                 </div>
+                <button
+                  onClick={() => setShowChat(false)}
+                  className="w-7 h-7 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 transition-colors"
+                >
+                  <X size={14} className="text-zinc-400" />
+                </button>
               </div>
 
-              {/* Message list */}
-              <div className="flex-1 overflow-y-auto px-2.5 py-2 space-y-2 min-h-0">
+              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
                 {messages.length === 0 && (
-                  <p className="text-[11px] text-zinc-600 text-center pt-6 leading-relaxed px-2">
+                  <p className="text-xs text-zinc-600 text-center pt-8 leading-relaxed">
                     Send your dentist a message about your scan.
                   </p>
                 )}
                 {messages.map(msg => (
                   <div key={msg.id} className={`flex flex-col ${msg.sender === 'patient' ? 'items-end' : 'items-start'}`}>
-                    <div className={`max-w-[92%] px-2.5 py-1.5 rounded-2xl text-xs leading-relaxed ${
+                    <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-xs leading-relaxed ${
                       msg.sender === 'patient'
                         ? 'bg-blue-600 text-white rounded-br-sm'
                         : 'bg-zinc-800 text-zinc-200 rounded-bl-sm'
                     }`}>
                       {msg.content}
                     </div>
-                    <span className="text-[9px] text-zinc-700 mt-0.5 px-1">
+                    <span className="text-[10px] text-zinc-700 mt-0.5 px-1">
                       {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
@@ -580,21 +605,20 @@ export default function ScanningFlow() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Compose input */}
-              <div className="px-2 py-2 border-t border-zinc-800 flex-shrink-0">
-                <div className="flex gap-1.5">
+              <div className="px-4 py-3 border-t border-zinc-800 flex-shrink-0">
+                <div className="flex gap-2">
                   <input
                     type="text"
                     value={newMessage}
                     onChange={e => setNewMessage(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && sendMessage()}
-                    placeholder="Message clinic…"
-                    className="flex-1 min-w-0 px-2.5 py-1.5 bg-zinc-800 border border-zinc-700 rounded-xl text-white text-xs placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 transition-colors"
+                    placeholder="Message your clinic…"
+                    className="flex-1 px-2.5 py-2 bg-zinc-800 border border-zinc-700 rounded-xl text-white text-xs placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 transition-colors"
                   />
                   <button
                     onClick={sendMessage}
                     disabled={!newMessage.trim() || isSending}
-                    className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-xs font-medium transition-colors flex-shrink-0"
+                    className="px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-xs font-medium transition-colors"
                   >
                     {isSending ? '…' : 'Send'}
                   </button>
